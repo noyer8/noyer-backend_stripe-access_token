@@ -42,7 +42,7 @@ app.get("/auth/facebook/callback", async (req, res) => {
     // TODO: sauvegarde DB, sélection de page, etc.
 
     // 3️⃣ REDIRECTION VERS TA PAGE FRONTOFFICE
-    res.redirect("https://noyer.io/plans.html");
+    res.redirect("https://noyer.io/basic-connect-facebook.html");
 
   } catch (err) {
     console.error(err);
