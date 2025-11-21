@@ -1,46 +1,38 @@
 import express from "express";
 import axios from "axios";
+import Stripe from "stripe";
 
 const app = express();
 app.use(express.json());
 
 // -----------------------------------------
-// 🔐 CONFIG FACEBOOK — À CHANGER ICI
+// 🔐 FACEBOOK CONFIG
 // -----------------------------------------
-
 const APP_ID = "2451194691945458";
-
-// ⚠️ IMPORTANT : Mets ici ton vrai APP_SECRET Facebook
-// depuis https://developers.facebook.com > Paramètres > Général
-const APP_SECRET = "79e0c26ce2f3dd8d1b099c239d4ef997"; 
-
-// L’URL de ton backend Render
+const APP_SECRET = process.env.APP_SECRET_FACEBOOK;
 const REDIRECT_URI = "https://noyer-facebook-backend.onrender.com/auth/facebook/callback";
-
-// Une fois connecté, l’utilisateur revient ici :
 const FRONT_REDIRECT = "https://noyer.io/basic-connect-facebook.html?connected=true";
 
+// -----------------------------------------
+// 💳 STRIPE CONFIG
+// -----------------------------------------
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // -----------------------------------------
-// 🚀 ROUTE DE TEST
+// ROUTE TEST
 // -----------------------------------------
 app.get("/", (req, res) => {
-  res.send("API Facebook Backend OK 🚀");
+  res.send("API Backend OK 🚀");
 });
 
-
 // -----------------------------------------
-// 🚀 CALLBACK FACEBOOK
+// FACEBOOK CALLBACK
 // -----------------------------------------
 app.get("/auth/facebook/callback", async (req, res) => {
   try {
     const code = req.query.code;
+    if (!code) return res.status(400).send("Code OAuth manquant");
 
-    if (!code) {
-      return res.status(400).send("Code OAuth manquant ❌");
-    }
-
-    // 1️⃣ Échange du code contre un token
     const tokenResponse = await axios.get(
       "https://graph.facebook.com/v19.0/oauth/access_token",
       {
@@ -53,29 +45,41 @@ app.get("/auth/facebook/callback", async (req, res) => {
       }
     );
 
-    const accessToken = tokenResponse.data.access_token;
+    console.log("✔ Token Facebook obtenu");
 
-    console.log("✔ TOKEN FACEBOOK OBTENU :", accessToken);
-
-
-    // 2️⃣ Tu peux sauvegarder ici en base si tu veux
-    // TODO: DB
-
-    // 3️⃣ Redirection vers ta page front
     return res.redirect(FRONT_REDIRECT);
 
   } catch (err) {
-
-    // LOG DE L’ERREUR FACEBOOK — SUPER IMPORTANT
     console.log("❌ Erreur Facebook:", err.response?.data || err.message);
-
     return res.status(500).send("Erreur lors de la connexion Facebook");
   }
 });
 
+// -----------------------------------------
+// 💳 STRIPE CHECKOUT SESSION
+// -----------------------------------------
+app.post("/create-checkout-session", async (req, res) => {
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      payment_method_types: ["card"],
+      line_items: [
+        { price: "price_1SVXTtIYNz8atWR79lh2FQiU", quantity: 1 }
+      ],
+      success_url: "https://noyer.io/success.html",
+      cancel_url: "https://noyer.io/cancel.html",
+    });
+
+    return res.json({ url: session.url });
+
+  } catch (err) {
+    console.log("❌ Erreur Stripe:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 // -----------------------------------------
-// 🚀 LANCEMENT SERVEUR
+// SERVEUR
 // -----------------------------------------
 app.listen(3000, () => {
   console.log("🔥 Backend Noyer en écoute sur le port 3000");
