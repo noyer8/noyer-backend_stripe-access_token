@@ -20,10 +20,12 @@ app.use(cors({
 const APP_ID = "2451194691945458";
 const APP_SECRET = process.env.APP_SECRET_FACEBOOK;
 const REDIRECT_URI = "https://noyer-facebook-backend.onrender.com/auth/facebook/callback";
-const FRONT_REDIRECT = "https://noyer.io/basic-connect-facebook.html?connected=true";
 
-// 📌 Stockage TEMPORAIRE EN MEMOIRE du token Facebook
-// (si le serveur redémarre, le token sera perdu — c’est normal pour commencer)
+// ❗ IMPORTANT : si l’utilisateur vient du premium → on redirect vers premium
+const FRONT_REDIRECT_BASIC = "https://noyer.io/basic-connect-facebook.html?connected=true";
+const FRONT_REDIRECT_PREMIUM = "https://noyer.io/premium-connect-facebook.html?connected=true";
+
+// 📌 Token Facebook stocké en mémoire
 let FACEBOOK_ACCESS_TOKEN = null;
 
 
@@ -47,6 +49,8 @@ app.get("/", (req, res) => {
 app.get("/auth/facebook/callback", async (req, res) => {
   try {
     const code = req.query.code;
+    const state = req.query.state; // pour savoir si BASIC ou PREMIUM
+
     if (!code) return res.status(400).send("Code OAuth manquant");
 
     const tokenResponse = await axios.get(
@@ -64,7 +68,15 @@ app.get("/auth/facebook/callback", async (req, res) => {
     FACEBOOK_ACCESS_TOKEN = tokenResponse.data.access_token;
     console.log("✔ Token Facebook sauvegardé :", FACEBOOK_ACCESS_TOKEN);
 
-    return res.redirect(FRONT_REDIRECT);
+
+    // ------------------------------
+    // BASIC vs PREMIUM redirection
+    // ------------------------------
+    if (state === "premium_secure_456") {
+      return res.redirect(FRONT_REDIRECT_PREMIUM);
+    } else {
+      return res.redirect(FRONT_REDIRECT_BASIC);
+    }
 
   } catch (err) {
     console.log("❌ Erreur Facebook:", err.response?.data || err.message);
@@ -74,8 +86,7 @@ app.get("/auth/facebook/callback", async (req, res) => {
 
 
 // -----------------------------------------
-// 🔥 NOUVELLE ROUTE
-// ENVOI AU WEBHOOK n8n
+// 🔥 ENVOI AU WEBHOOK n8n
 // -----------------------------------------
 app.post("/send-infos-to-webhook", async (req, res) => {
   try {
@@ -83,16 +94,14 @@ app.post("/send-infos-to-webhook", async (req, res) => {
       return res.status(400).json({ error: "Token Facebook absent" });
     }
 
-    // ⬅ Toutes les infos envoyées du front
     const userInfos = req.body;
 
-    // On merge les infos + token Facebook
     const payload = {
       ...userInfos,
       facebookToken: FACEBOOK_ACCESS_TOKEN,
     };
 
-    console.log("📤 Envoi au Webhook n8n…");
+    console.log("📤 Envoi au Webhook n8n…", payload);
 
     await axios.post(
       "https://pierre07.app.n8n.cloud/webhook/infosclients",
@@ -101,7 +110,6 @@ app.post("/send-infos-to-webhook", async (req, res) => {
     );
 
     console.log("✔ Webhook envoyé avec succès");
-
     return res.json({ status: "ok" });
 
   } catch (err) {
@@ -111,11 +119,13 @@ app.post("/send-infos-to-webhook", async (req, res) => {
 });
 
 
+
 // -----------------------------------------
-// 💳 STRIPE CHECKOUT SESSION
+// 💳 STRIPE BASIC
 // -----------------------------------------
 app.post("/create-checkout-session", async (req, res) => {
   try {
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
@@ -129,10 +139,37 @@ app.post("/create-checkout-session", async (req, res) => {
     return res.json({ url: session.url });
 
   } catch (err) {
-    console.log("❌ Erreur Stripe:", err.message);
+    console.log("❌ Erreur Stripe BASIC:", err.message);
     return res.status(500).json({ error: err.message });
   }
 });
+
+
+
+// -----------------------------------------
+// 💳 STRIPE PREMIUM
+// -----------------------------------------
+app.post("/create-checkout-session-premium", async (req, res) => {
+  try {
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      payment_method_types: ["card"],
+      line_items: [
+        { price: "price_1SVXUsIYNz8atWR7lFquHQMH", quantity: 1 }
+      ],
+      success_url: "https://noyer.io/success.html",
+      cancel_url: "https://noyer.io/cancel.html",
+    });
+
+    return res.json({ url: session.url });
+
+  } catch (err) {
+    console.log("❌ Erreur Stripe PREMIUM:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 
 
 // -----------------------------------------
