@@ -21,11 +21,11 @@ const APP_ID = "2451194691945458";
 const APP_SECRET = process.env.APP_SECRET_FACEBOOK;
 const REDIRECT_URI = "https://noyer-facebook-backend.onrender.com/auth/facebook/callback";
 
-// ❗ IMPORTANT : si l’utilisateur vient du premium → on redirect vers premium
 const FRONT_REDIRECT_BASIC = "https://noyer.io/basic-connect-facebook.html?connected=true";
 const FRONT_REDIRECT_PREMIUM = "https://noyer.io/premium-connect-facebook.html?connected=true";
+const FRONT_REDIRECT_BUSINESS = "https://noyer.io/business-connect-facebook.html?connected=true";
 
-// 📌 Token Facebook stocké en mémoire
+// 📌 Stockage du token Facebook
 let FACEBOOK_ACCESS_TOKEN = null;
 
 
@@ -49,7 +49,7 @@ app.get("/", (req, res) => {
 app.get("/auth/facebook/callback", async (req, res) => {
   try {
     const code = req.query.code;
-    const state = req.query.state; // pour savoir si BASIC ou PREMIUM
+    const state = req.query.state;
 
     if (!code) return res.status(400).send("Code OAuth manquant");
 
@@ -70,13 +70,17 @@ app.get("/auth/facebook/callback", async (req, res) => {
 
 
     // ------------------------------
-    // BASIC vs PREMIUM redirection
+    // BASIC / PREMIUM / BUSINESS
     // ------------------------------
     if (state === "premium_secure_456") {
       return res.redirect(FRONT_REDIRECT_PREMIUM);
-    } else {
-      return res.redirect(FRONT_REDIRECT_BASIC);
     }
+
+    if (state === "business_secure_789") {
+      return res.redirect(FRONT_REDIRECT_BUSINESS);
+    }
+
+    return res.redirect(FRONT_REDIRECT_BASIC);
 
   } catch (err) {
     console.log("❌ Erreur Facebook:", err.response?.data || err.message);
@@ -94,10 +98,8 @@ app.post("/send-infos-to-webhook", async (req, res) => {
       return res.status(400).json({ error: "Token Facebook absent" });
     }
 
-    const userInfos = req.body;
-
     const payload = {
-      ...userInfos,
+      ...req.body,
       facebookToken: FACEBOOK_ACCESS_TOKEN,
     };
 
@@ -166,6 +168,32 @@ app.post("/create-checkout-session-premium", async (req, res) => {
 
   } catch (err) {
     console.log("❌ Erreur Stripe PREMIUM:", err.message);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+// -----------------------------------------
+// 💳 STRIPE BUSINESS
+// -----------------------------------------
+app.post("/create-checkout-session-business", async (req, res) => {
+  try {
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      payment_method_types: ["card"],
+      line_items: [
+        { price: "price_1SVXVGIYNz8atWR7g6F8eFwc", quantity: 1 }
+      ],
+      success_url: "https://noyer.io/success.html",
+      cancel_url: "https://noyer.io/cancel.html",
+    });
+
+    return res.json({ url: session.url });
+
+  } catch (err) {
+    console.log("❌ Erreur Stripe BUSINESS:", err.message);
     return res.status(500).json({ error: err.message });
   }
 });
