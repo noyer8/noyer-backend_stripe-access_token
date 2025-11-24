@@ -158,7 +158,7 @@ app.post("/create-checkout-session-premium", async (req, res) => {
       mode: "subscription",
       payment_method_types: ["card"],
       line_items: [
-        { price: "price_1SVXUsIYNz8atWR7lFquHQMH", quantity: 1 }
+        { price: "price_1SWxDMIYNz8atWR7t03yEc7M", quantity: 1 }
       ],
       success_url: "https://noyer.io/success.html",
       cancel_url: "https://noyer.io/cancel.html",
@@ -184,7 +184,7 @@ app.post("/create-checkout-session-business", async (req, res) => {
       mode: "subscription",
       payment_method_types: ["card"],
       line_items: [
-        { price: "price_1SVXVGIYNz8atWR7g6F8eFwc", quantity: 1 }
+        { price: "price_1SWxDoIYNz8atWR7MTlLP9zR", quantity: 1 }
       ],
       success_url: "https://noyer.io/success.html",
       cancel_url: "https://noyer.io/cancel.html",
