@@ -132,7 +132,7 @@ app.post("/create-checkout-session", async (req, res) => {
       mode: "subscription",
       payment_method_types: ["card"],
       line_items: [
-        { price: "price_1SVXTtIYNz8atWR79lh2FQiU", quantity: 1 }
+        { price: "price_1SYAGBIYNz8atWR7gDFSGLng", quantity: 1 }
       ],
       success_url: "https://noyer.io/success.html",
       cancel_url: "https://noyer.io/cancel.html",
